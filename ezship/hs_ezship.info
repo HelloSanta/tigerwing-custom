@@ -1,0 +1,14 @@
+name = Ezship Commerce Shipping Module
+description = Provides an ezship shipping method for Commerce.
+package = HelloSanta Module(Ezship)
+dependencies[] = commerce
+dependencies[] = commerce_shipping
+dependencies[] = commerce_profile
+core = 7.x
+
+; Information added by Drupal.org packaging script on 2015-09-15
+version = "7.x-2.2"
+core = "7.x"
+project = "commerce_shipping"
+datestamp = "1428479882"
+

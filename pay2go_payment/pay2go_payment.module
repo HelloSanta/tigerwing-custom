@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Pay2Go交易紀錄 feature.
+ */
+
+include_once 'pay2go_payment.features.inc';

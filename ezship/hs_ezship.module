@@ -1,0 +1,248 @@
+<?php
+
+/**
+* 此模組必須搭配HelloSanta製作的Features安裝檔
+* 並且需要在order的架構上，加入文字屬性的field_order_serial欄位
+* 如此才有辦法進行整體Ezship的安裝
+**/
+
+
+
+function hs_ezship_menu(){
+  $items['checkout/%/result'] = array(
+    'title' => t('處理中'),
+    'page callback' => 'result_page',
+    'type' => MENU_NORMAL_ITEM,
+    'access callback'=>TRUE,
+  );
+  $items['checkout/%/senddata'] = array(
+    'title' => t('處理中'),
+    'page callback' => 'xml_page',
+    'type' => MENU_NORMAL_ITEM,
+    'access callback'=>TRUE,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_commerce_shipping_method_info().
+ */
+function hs_ezship_commerce_shipping_method_info() {
+  $shipping_methods = array();
+
+  $shipping_methods['ezship_shipping_method'] = array(
+    'title' => t('Ezship物流'),
+    'description' => t('Ezship超商取貨不付款服務'),
+  );
+
+  return $shipping_methods;
+}
+
+/**
+ * Implements hook_commerce_shipping_service_info().
+ */
+function hs_ezship_commerce_shipping_service_info() {
+  $shipping_services = array();
+
+  $shipping_services['ezship_shipping_service'] = array(
+    'title' => t('Ezship物流服務'),
+    'description' => t('主要讓使用者可以通過此服務，來選擇想要取貨的全家或萊爾富'),
+    'display_title' => t('超商取貨不付款'),
+    'shipping_method' => 'ezship_shipping_method',
+    'price_component' => 'shipping',
+    'callbacks' => array(
+      'rate' => 'hs_ezship_service_rate',
+      'details_form' => 'hs_ezship_service_details_form',
+      'details_form_validate' => 'hs_ezship_service_details_form_validate',
+      'details_form_submit' => 'hs_ezship_service_details_form_submit',
+    ),
+  );
+
+  return $shipping_services;
+}
+
+/**
+ * Shipping service callback: returns a base price array for a shipping service
+ * calculated for the given order.
+ */
+function hs_ezship_service_rate($shipping_service, $order) {
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  return array(
+    'amount' => 1000,
+    'currency_code' => $order_wrapper->commerce_order_total->currency_code->value(),
+    'data' => array(),
+  );
+}
+
+/**
+ * Shipping service callback: returns the example shipping service details form.
+ */
+function hs_ezship_service_details_form($pane_form, $pane_values, $checkout_pane, $order, $shipping_service) {
+  global  $base_url;
+  $form = array();
+  $profile_id=$order->commerce_customer_shipping['und'][0]['profile_id'];
+  $shipping_profile=commerce_customer_profile_load($profile_id);
+  $field_stname=$shipping_profile->field_stname;
+  
+  if(!empty($field_stname)){
+    $stname=$shipping_profile->field_stname['und'][0]['value'];
+    $staddr=$shipping_profile->field_staddr['und'][0]['value'];
+    $sttel=$shipping_profile->field_sttel['und'][0]['value'];
+
+    //若要重新選店家，直接通過連結連出去
+    //導向ezship
+    $ezship_url='http://map.ezship.com.tw/ezship_map_web.jsp';
+    $processID=$order->field_order_serial['und'][0]['value'];
+    $order_id=$order->order_id;
+    $data=array(
+      'suID'=>variable_get("ezship_account"),
+      'processID' => $processID,
+      'rtURL' => $base_url.'/checkout/'.$order_id.'/result',
+      'webPara'=> $order_id,
+    );
+    $full_url = url($ezship_url, array('query' => $data));
+    
+    $form['shipping_description'] = array(
+      '#markup' => '店家名稱：'.$stname.'</br>店家地址：'.$staddr.'</br>店家電話：'.$sttel.'</br><a href='.$full_url.'>重選店家</a>',
+    );
+
+
+  }
+  
+
+  return $form;
+}
+
+/**
+ * Shipping service callback: validates the example shipping service details.
+ */
+function hs_ezship_service_details_form_validate($details_form, $details_values, $shipping_service, $order, $form_parents) {
+  
+}
+
+/**
+ * Shipping service callback: increases the shipping line item's unit price if
+ * express delivery was selected.
+ */
+function hs_ezship_service_details_form_submit($details_form, $details_values, $line_item) {
+  global $base_url;
+
+  $order_id=$line_item->order_id;
+  $order=commerce_order_load($order_id);
+  $profile_id=$order->commerce_customer_shipping['und'][0]['profile_id'];
+  $shipping_profile=commerce_customer_profile_load($profile_id);
+  $order->field_order_serial['und'][0]['value']=date("Ymdhis");
+  commerce_order_save($order);
+  $processID=$order->field_order_serial['und'][0]['value'];
+  
+  $field_stname=$shipping_profile->field_stname;
+  
+  if(empty($field_stname)){ //若未選好店家，則跑Ezship流程
+    //導向ezship
+    $ezship_url='http://map.ezship.com.tw/ezship_map_web.jsp';
+
+    $data=array(
+      'suID'=>variable_get("ezship_account"),
+      'processID' => $processID,
+      'rtURL' => $base_url.'/checkout/'.$order_id.'/result',
+      'webPara'=> $order_id,
+    );
+    $full_url = url($ezship_url, array('query' => $data));
+    drupal_goto($full_url); 
+  }
+  
+
+
+}
+
+/**
+ * Implements hook_commerce_price_component_type_info().
+ */
+function hs_ezship_commerce_price_component_type_info() {
+  return array(
+    'ezship_shipping_service' => array(
+      'title' => t('EZSHIP物流運費'),
+      'weight' => 20,
+    ),
+  );
+}
+
+function hs_ezship_commerce_order_presave($order) {
+  // No example.
+  //$order->field_order_serial['und'][0]['value']=date("Ymdhis");
+}
+
+
+function hs_ezship_variable_group_info() {
+  $groups['ezship_all'] = array(
+    'title' => t('Ezship全域設定'), 
+    'description' => t('Ezship全域設定'), 
+  );
+
+  return $groups;
+}
+
+
+
+function hs_ezship_variable_info() {
+  
+  
+  $variables['ezship_account'] = array(
+    'name' => 'ezship_account',
+    'title' => t('Ezship帳號'),
+    'description' => t('買家登入Ezship帳號，若沒有帳號，請先申請'),
+    'default' => ' ',
+    'type' => 'string',
+    'group' => 'ezship_all',
+    'token' => TRUE,
+    'element' => array(
+      '#type' => 'textfield',
+    ),
+  );
+  
+  
+  return $variables;
+}
+
+
+//將ezship的結果加入此筆訂單的收件人資料裡面
+function result_page(){
+  global $base_url;
+  if(empty($_POST)){
+    drupal_exit();
+  }
+  $processID=$_POST["processID"];//本次儲值序號
+  $stCate=$_POST["stCate"];//取件門市通路代號 TFM-全家超商;TLF-萊爾富超商;TOK-OK超商
+  $stCode=$_POST["stCode"];//取件門市代號
+  $stName=$_POST["stName"];//取件門市名稱
+  $stAddr=$_POST["stAddr"];//取件門市地址
+  $stTel=$_POST["stTel"];//取件門市電話
+  $order_id=$_POST["webPara"];//本次order id
+  
+  $order=commerce_order_load($order_id);
+  $profile_id=$order->commerce_customer_shipping['und'][0]['profile_id'];
+  $serial=$order->field_order_serial['und'][0]['value'];
+
+  if($serial==$processID){
+    $profile=commerce_customer_profile_load($profile_id);
+    $profile->field_stcate['und'][0]['value']=$stCate;
+    $profile->field_stcode['und'][0]['value']=$stCode;
+    $profile->field_stname['und'][0]['value']=$stName;
+    $profile->field_staddr ['und'][0]['value']=$stAddr;
+    $profile->field_sttel['und'][0]['value']=$stTel;
+    commerce_customer_profile_save($profile);
+    commerce_order_status_update($order, 'checkout_shipping');
+    drupal_goto($base_url.'/checkout/'.$order_id.'/shipping');
+
+    
+  }
+  else{//代表資料偽造
+    drupal_exit();
+  }
+  return 'test';
+}
+
+
+
+
+?>

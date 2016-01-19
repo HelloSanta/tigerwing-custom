@@ -1,0 +1,444 @@
+<?php
+
+/**
+*此模組主要是給Commerce的payment使用
+*金流為串接智付寶Pay2go
+*程式撰寫：Victor Yang
+*初次撰寫日期：20150916
+*/
+
+function hs_pay2go_menu(){
+  $items = array();
+  $items['checkout/%/confirm'] = array(
+    'title' => t('傳送中'),
+    'page callback' => 'confirm_page',
+    'type' => MENU_NORMAL_ITEM,
+    'access callback'=>TRUE,
+  );
+  $items['checkout/%/return'] = array(
+    'title' => t('結果回傳'),
+    'page callback' => 'return_page',
+    'type' => MENU_NORMAL_ITEM,
+    'access callback'=>TRUE,
+  );
+  $items['checkout/%/notify'] = array(
+    'title' => t('通知回傳'),
+    'page callback' => 'notify_page',
+    'type' => MENU_NORMAL_ITEM,
+    'access callback'=>TRUE,
+  );
+  return $items;
+}
+
+
+function hs_pay2go_commerce_payment_method_info() {
+  $payment_methods = array();
+
+  $payment_methods['credit_card'] = array(
+    'base'  => 'pay2go_credit_card',
+    'title' => t('信用卡'),
+    'description' => t('提供信用卡付款服務'),
+    'active' => False,
+  );
+
+  $payment_methods['webatm'] = array(
+    'base'  => 'pay2go_webatm',
+    'title' => t('WebATM'),
+    'description' => t('提供WebATM服務'),
+    'active' => False,
+  );
+
+  $payment_methods['vacc'] = array(
+    'base'  => 'pay2go_vacc',
+    'title' => t('ATM轉帳'),
+    'description' => t('提供ATM轉帳'),
+    'active' => False,
+  );
+
+  $payment_methods['cvs'] = array(
+    'base'  => 'pay2go_cvs',
+    'title' => t('超商代碼繳費'),
+    'description' => t('提供超商代碼繳費'),
+    'active' => False,
+  );
+
+  $payment_methods['barcode'] = array(
+    'base'  => 'pay2go_barcode',
+    'title' => t('條碼繳費'),
+    'description' => t('提供條碼繳費'),
+    'active' => False,
+  );
+
+  $payment_methods['alipay'] = array(
+    'base'  => 'pay2go_alipay',
+    'title' => t('支付寶'),
+    'description' => t('提供支付寶'),
+    'active' => False,
+  );
+
+  $payment_methods['tenpay'] = array(
+    'base'  => 'pay2go_tenpay',
+    'title' => t('財付通'),
+    'description' => t('提供財付通'),
+    'active' => False,
+  );
+
+  return $payment_methods;
+}
+
+/**
+ * Returns the default settings for the So-Net Payment.
+ */
+function hs_pay2go_default_settings() {
+   return array(
+    'pay2go_status' => 'dev',
+  );
+}
+
+/*
+* Sonet Payment Environment Setting Form
+*
+*/
+
+function pay2go_credit_card_settings_form($settings = NULL)
+{ 
+  // Merge default settings into the stored settings array.
+  $settings = (array) $settings + hs_pay2go_default_settings();
+
+  $form = array();
+  
+  $options=array(
+      'dev' => t('Development'),
+      'production' => t('Production'),
+  );
+  $form['pay2go_status'] = array(
+    '#title' => t('智付寶系統狀態'),
+    '#description' => t('請選擇智付寶系統狀態。例如：測試環境DEV,正式環境Production'),
+    '#type' => 'radios',
+    '#options'=>$options,
+    '#default_value'=> $settings['pay2go_status'],
+  );
+
+  return $form;
+}
+
+/**
+ * Payment method callback: submit form.
+ */
+function pay2go_credit_card_submit_form($payment_method, $pane_values, $checkout_pane, $order) {
+  
+}
+
+/**
+ * Payment method callback: submit form submission.
+ */
+function pay2go_credit_card_submit_form_submit($payment_method, $pane_form, $pane_values, $order, $charge) {
+
+ 	global $base_url;
+ 	
+ 	$method_id=$payment_method['method_id'];
+ 	 	
+ 	//取得傳送參數
+ 	$data=pay2go_environment_argument($method_id,$order);
+	
+	$full_url = url($base_url.'/checkout/'.$order->order_id.'/confirm', array('query' => $data));
+		
+	drupal_goto($full_url); 
+
+
+}
+
+
+
+
+function hs_pay2go_variable_group_info() {
+  $groups['pay2go_all'] = array(
+    'title' => t('智付寶全域設定'), 
+    'description' => t('智付寶全域設定'), 
+  );
+
+  return $groups;
+}
+
+
+
+function hs_pay2go_variable_info() {
+  
+  
+  $variables['pay2go_dev_url'] = array(
+    'name' => 'pay2go_dev_url',
+    'title' => t('測試串接網址'),
+    'description' => t('請至智付寶測試平台進行註冊，並且建立測試商店，有效使用天期為註冊完成以後起算30天。'),
+    'default' => 'https://capi.pay2go.com/MPG/mpg_gateway',
+    'type' => 'string',
+    'group' => 'pay2go_all',
+    'token' => TRUE,
+    'element' => array(
+      '#type' => 'textfield',
+    ),
+  );
+
+  $variables['pay2go_pro_url'] = array(
+    'name' => 'pay2go_pro_url',
+    'title' => t('正式串接網址'),
+    'description' => t('請至智付寶平台進行註冊，並且建立正式商店。'),
+    'default' => 'https://api.pay2go.com/MPG/mpg_gateway',
+    'type' => 'string',
+    'group' => 'pay2go_all',
+    'token' => TRUE,
+    'element' => array(
+      '#type' => 'textfield',
+    ),
+  );
+
+  $variables['MerchantID'] = array(
+    'name' => 'MerchantID',
+    'title' => t('商店代號'),
+    'description' => t('智付寶商店代號'),
+    'default' => '3868762',
+    'type' => 'string',
+    'group' => 'pay2go_all',
+    'token' => TRUE,
+    'element' => array(
+      '#type' => 'textfield',
+    ),
+  );
+  
+  $variables['pay2go_status'] = array(
+    'name'   => 'pay2go_status',
+    'title' => t('智付寶系統狀態'),
+    'description' => t('請選擇智付寶系統狀態。例如：測試環境DEV,正式環境Production'),
+    'default' => 'dev',
+    'type' => 'string',
+    'group' => 'pay2go_all',
+    'token' => TRUE,
+    'element' => array(
+      '#type' => 'radios',
+      '#options' => array(
+        'dev' => t('測試環境'),
+        'production' => t('正式環境'),
+      ),
+    ),
+  );
+  
+  $variables['HashKey'] = array(
+    'name' => 'HashKey',
+    'title' => t('HashKey'),
+    'description' => t('智付寶提供的HashKey'),
+    'default' => '',
+    'type' => 'string',
+    'group' => 'pay2go_all',
+    'token' => TRUE,
+    'element' => array(
+      '#type' => 'textfield',
+    ),
+  );
+  
+  $variables['HashIV'] = array(
+    'name' => 'HashIV',
+    'title' => t('HashIV'),
+    'description' => t('智付寶提供的HashIV'),
+    'default' => '',
+    'type' => 'string',
+    'group' => 'pay2go_all',
+    'token' => TRUE,
+    'element' => array(
+      '#type' => 'textfield',
+    ),
+  );
+  
+
+  return $variables;
+}
+
+function confirm_page(){
+  
+  $pay2go_status=variable_get('pay2go_status');
+  
+  if($pay2go_status=='dev'){
+    $actionUrl=variable_get('pay2go_dev_url');     
+  }
+  elseif($pay2go_status=='production'){
+    $actionUrl=variable_get('pay2go_pro_url');
+  }
+  
+  //將此值Post到Sonet對應的頁面，進行後續的動作。
+  $output='<form action="'.$actionUrl.'" method="post" name="frm">';
+  foreach ($_GET as $a => $b) {
+    $output=$output."<input type='hidden' name='".htmlentities($a)."' value='".htmlentities($b)."'>";
+  }
+  $output=$output.'</form><script language="JavaScript">document.frm.submit()</script>請稍待。。。';
+
+  return $output;
+}
+
+
+function return_page(){
+
+  $json=$_POST['JSONData'];
+  $json=drupal_json_decode($json);
+  
+  $status=$json['Status'];
+  $message=$json['Message'];
+  
+  if($status=='SUCCESS'){
+  	$result=drupal_json_decode($json['Result']);
+  	$MerchantOrderNo=$result['MerchantOrderNo'];
+  	$query=db_select('commerce_order','o');
+  	$query->condition('o.type','commerce_order');
+  	$query->join('field_data_field_order_serial','a','a.entity_id=o.order_id');
+  	$query->fields('o',array('order_id'));  	
+  	$query->condition('a.field_order_serial_value',$MerchantOrderNo);
+  	$order_id=$query->execute()->fetchfield();
+  	
+  	$order=commerce_order_load($order_id);
+  	
+  	//dpm($result);
+  	
+  	//建立commerce交易紀錄
+ 	$transaction = commerce_payment_transaction_new('credit_card', $order_id);
+	$transaction->amount = $order->commerce_order_total['und'][0]['amount'];
+	$transaction->currency_code = $order->commerce_order_total['und'][0]['currency_code'];
+	$transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
+	commerce_payment_transaction_save($transaction);
+  	$transaction_id=$transaction->transaction_id;
+  	
+	//紀錄交易回傳參數
+	$payment_record = new stdClass;
+	$payment_record->type = 'pay2go_payment_record';
+	$payment_record->uid = 1;
+	$payment_record->title = $result['TradeNo'];
+	$payment_record->language = LANGUAGE_NONE;
+	$payment_record->field_tradeno[LANGUAGE_NONE][0]['value']=$result['TradeNo'];
+	$payment_record->field_checkcode[LANGUAGE_NONE][0]['value']=$result['CheckCode'];
+	$payment_record->field_ip[LANGUAGE_NONE][0]['value']=$result['IP'];
+	$payment_record->field_escrowbank[LANGUAGE_NONE][0]['value']=$result['EscrowBank'];
+	$payment_record->field_paymenttype[LANGUAGE_NONE][0]['value']=$result['PaymentType'];
+	$payment_record->field_paytime[LANGUAGE_NONE][0]['value']=$result['PayTime'];
+	$payment_record->field_respondcode[LANGUAGE_NONE][0]['value']=$result['RespondCode'];
+	$payment_record->field_auth[LANGUAGE_NONE][0]['value']=$result['Auth'];
+	if(empty($result['TokenUseStatus'])){
+    $payment_record->field_tokenusestatus[LANGUAGE_NONE][0]['value']=0;
+  }
+  else{
+    $payment_record->field_tokenusestatus[LANGUAGE_NONE][0]['value']=$result['TokenUseStatus'];  
+  }
+	$payment_record->field_instfirst[LANGUAGE_NONE][0]['value']=$result['InstFirst'];
+	$payment_record->field_insteach[LANGUAGE_NONE][0]['value']=$result['InstEach'];
+	$payment_record->field_inst[LANGUAGE_NONE][0]['value']=$result['Inst'];
+	$payment_record->field_eci[LANGUAGE_NONE][0]['value']=$result['ECI'];
+	$payment_record->field_transaction_id[LANGUAGE_NONE][0]['target_id']=$transaction_id;
+	node_object_prepare($payment_record);
+	node_save($payment_record);
+  	
+  	
+  	$order = commerce_order_status_update($order, 'checkout_complete');
+	commerce_checkout_complete($order); 
+	drupal_goto('/checkout/'.$order_id);
+  }
+  else{
+	watchdog('PAY2GO', $message, WATCHDOG_ERROR);
+	drupal_set_message($message,'error');
+	drupal_goto('/checkout');
+  }
+
+  
+  
+  
+  
+
+}
+
+
+function pay2go_environment_argument($method_id,$order){
+
+	global $base_url;
+	
+	$wrapper = entity_metadata_wrapper('commerce_order', $order);
+	$price = $wrapper->commerce_order_total->amount->value();
+	$price = $price/10; //去除小數點那兩位
+	
+	$MerchantID=variable_get('MerchantID');
+	$HashKey=variable_get('HashKey');
+	$HashIV=variable_get('HashIV');
+	$RespondType='JSON'; //可以選擇是JSON或String
+	$CheckValue='';
+	$TimeStamp=time();
+	$Version='1.2';
+	$LangType='zh-tw';
+	$Amt=$price;
+	$ItemDesc='Product Information: Please Check this in your Drupal site';//商品資訊
+	$MerchantOrderNo=$order->field_order_serial['und'][0]['value'];
+	$ReturnURL=$base_url.'/checkout/'.$order->order_id.'/return';
+	$NotifyURL=$base_url.'/checkout/'.$order->order_id.'/notify';
+	$CustomerURL='';
+	$ClientBackURL='';
+	$Email=$order->mail;
+	$EmailModify=1;
+	$LoginType=0;
+	$OrderComment='Order Comment';
+	
+	/** Payment Method Arguements **/
+	
+	$CREDIT='';
+	$InstFlag='';
+	$UNIONPAY='';
+	$WEBATM='';
+	$VACC='';
+	$CVS='';
+	$BARCODE='';
+	$TENPAY='';
+	$CUSTOM='';
+	
+	/** Payment Method Arguements **/
+
+	if($method_id=='credit_card'){
+		$CREDIT=1;
+	}
+	
+	$mer_array = array(
+		'MerchantID' => $MerchantID,
+		'TimeStamp' => $TimeStamp,
+		'MerchantOrderNo'=>$MerchantOrderNo,
+		'Version' => '1.2',
+		'Amt' => $Amt,
+	);
+	ksort($mer_array);
+	$check_merstr = http_build_query($mer_array);
+	$CheckValue_str ="HashKey=".$HashKey."&".$check_merstr."&HashIV=".$HashIV;
+	$CheckValue = strtoupper(hash("sha256", $CheckValue_str));
+	
+			
+	$data=array(
+	    'MerchantID'  => $MerchantID,
+	    'RespondType' => $RespondType,
+	    'CheckValue'  => $CheckValue,
+	    'TimeStamp'   => $TimeStamp,
+	    'Version'     => $Version,
+	    'LangType'    => $LangType,
+	    'MerchantOrderNo' => $MerchantOrderNo,
+	    'Amt'         => $Amt,
+	    'ItemDesc'    => $ItemDesc,
+	    'ReturnURL'   => $ReturnURL,
+	    'NotifyURL'   => $NotifyURL,
+	    'CustomerURL' => $CustomerURL,
+	    'ClientBackURL'=> $ClientBackURL,
+	    'Email'        => $Email,
+	    'EmailModify' => $EmailModify,
+	    'LoginType'   => $LoginType,
+	    'OrderComment' => $OrderComment,
+	    'CREDIT'       => $CREDIT,
+	    'InstFlag'     => $InstFlag,
+	    'UNIONPAY'     => $UNIONPAY,
+	    'WEBATM'       => $WEBATM,
+	    'VACC'         => $VACC,
+	    'CVS'          => $CVS,
+	    'BARCODE'      => $BARCODE,
+	    'TENPAY'       => $TENPAY,
+	    'CUSTOM'       => $CUSTOM,
+	);
+
+	return $data;
+}
+
+?>

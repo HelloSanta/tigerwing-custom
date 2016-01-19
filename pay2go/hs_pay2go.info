@@ -1,0 +1,12 @@
+name = Pay2go Commerce Payment Module
+description = Provides an Pay2go payment method for Commerce.
+package = HelloSanta Module(Pay2go)
+dependencies[] = commerce
+core = 7.x
+
+; Information added by Drupal.org packaging script on 2015-09-15
+version = "7.x-2.2"
+core = "7.x"
+project = "commerce_pay2go"
+datestamp = "1428479882"
+

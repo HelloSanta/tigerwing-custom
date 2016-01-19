@@ -1,0 +1,32 @@
+<?php
+
+/**
+* Implements hook_form_alter();
+*/
+function commerce_lang_repair_form_alter(&$form, &$form_state, $form_id) {
+  // Fix order total translation
+  // Fix translation on checkout form
+  if ($form_id == 'commerce_checkout_form_checkout'){
+    if (isset($form['cart_contents'])){
+      $form['cart_contents']['cart_contents_view']['#markup'] = str_replace('Order total</td>', t('Order total') .'</td>', $form['cart_contents']['cart_contents_view']['#markup']);
+    }
+    if(isset($form['customer_profile_billing'])){
+      $form['customer_profile_billing']['#title'] = t('Billing information');
+    }
+    if (isset($form['customer_profile_shipping'])){
+      $form['customer_profile_shipping']['#title'] = t('Shipping information');
+    }
+  }
+  // Fix translation on checkout review
+  if ($form_id == 'commerce_checkout_form_review'){
+    if (isset($form['checkout_review']['review']['#data']['cart_contents'])){
+      $form['checkout_review']['review']['#data']['cart_contents']['data'] = str_replace('Order total</td>', t('Order total') .'</td>', $form['checkout_review']['review']['#data']['cart_contents']['data']);
+    }
+    if (isset($form['checkout_review']['review']['#data']['customer_profile_billing'])){
+      $form['checkout_review']['review']['#data']['customer_profile_billing']['title'] = t('Billing information');
+    }
+    if (isset($form['checkout_review']['review']['#data']['customer_profile_shipping'])){
+      $form['checkout_review']['review']['#data']['customer_profile_shipping']['title'] = t('Shipping information');
+    }
+  }
+}
